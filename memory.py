@@ -73,11 +73,23 @@ def _cloud_headers():
         "Content-Type": "application/json"
     }
 
+
+def _cloud_auth_headers():
+    """Auth-only headers, no Content-Type — used for multipart/form-data
+    requests where `requests` must set its own boundary header."""
+    return {
+        "X-Api-Key": COGNEE_API_KEY,
+        "X-Tenant-Id": COGNEE_TENANT_ID,
+    }
+
 def cloud_add(text: str, dataset_name: str):
     resp = requests.post(
         f"{COGNEE_BASE_URL}/api/v1/add",
-        json={"data": text, "datasetName": dataset_name},
-        headers=_cloud_headers()
+        data={"datasetName": dataset_name},
+        # Cognee's /add endpoint requires actual UploadFile-shaped parts —
+        # a filename + content type, not a bare text field — or it 422s.
+        files={"data": ("notes.txt", text, "text/plain")},
+        headers=_cloud_auth_headers()
     )
     resp.raise_for_status()
 
