@@ -43,7 +43,14 @@ def run_async_safe(coro, friendly_message="Something went wrong. Please try agai
             st.code(f"{type(e).__name__}: {e}")
         return None
         # Apply backend mode from session state on every page load
-_backend_mode = st.session_state.get("backend_choice", "Local (Ollama)")
+_backend_mode = st.session_state.get("backend_choice")
+if _backend_mode is None:
+    # No explicit user choice yet — auto-pick based on whether Ollama is
+    # actually reachable, so a fresh session on a host with no local Ollama
+    # (e.g. Streamlit Community Cloud) doesn't default into Local mode and
+    # crash when memory.py tries to touch the local cognee/SQLite state.
+    _backend_mode = "Local (Ollama)" if memory.check_ollama_running() else "Cloud (Cognee)"
+    st.session_state.backend_choice = _backend_mode
 memory.set_mode("cloud" if _backend_mode == "Cloud (Cognee)" else "local")
 
 CUSTOM_CSS = """
@@ -329,7 +336,7 @@ with st.sidebar:
     st.divider()
     if not memory.check_ollama_running():
         if memory.COGNEE_MODE == "cloud":
-            st.warning("⚠️ Ollama isn't running. Cloud memory search will still work, but quiz/flashcard/study-plan generation needs Ollama locally.")
+            st.info("ℹ️ Running in Cloud (Cognee) mode since Ollama isn't reachable here. Quiz/flashcard/study-plan generation needs an LLM — switch to Local (Ollama) in ⚙️ Settings if you have Ollama running locally.")
         else:
             st.error("⚠️ Ollama isn't running. Start it, or switch to Cloud (Cognee) mode in ⚙️ Settings.")
 
