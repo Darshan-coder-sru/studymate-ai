@@ -1,107 +1,119 @@
 # 🧠 StudyMate AI
 
-> **Your memory-powered, adaptive study assistant — built with Cognee, Ollama, and Streamlit.**
+StudyMate AI is an AI-powered study companion built with **Streamlit** that turns your notes into an adaptive learning system. It remembers what you've studied, tracks where you struggle, and uses that memory to generate quizzes, flashcards, study plans, knowledge graphs, and exam predictions tailored to you.
 
-Built for the **WeMakeDevs x Cognee Hackathon** 🏆
-
----
-
-## ✨ What is StudyMate AI?
-
-StudyMate AI is a local, privacy-first study assistant that learns *with* you. Upload your notes or PDFs, ask questions, take quizzes — and watch it adapt to how you learn best over time using **Cognee's knowledge graph memory**.
-
-No cloud. No API keys. Runs entirely on your machine.
+Under the hood it uses **Cognee** (local or cloud) as a memory/knowledge-graph layer and **Ollama** (Qwen2.5) for local LLM inference — so it can run fully offline, or connect to Cognee Cloud.
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| 📄 **Notes & PDF Upload** | Paste notes or upload a PDF and store them in Cognee's knowledge graph |
-| 💬 **Adaptive Q&A** | Ask questions — answers are generated from *your notes*, not random internet data |
-| 🎯 **Difficulty Modes** | Choose Beginner, Intermediate, or Advanced answer style |
-| 📝 **AI Quiz Generator** | Auto-generates multiple-choice quizzes from your notes |
-| 🔁 **Flashcard Mode** | Interactive flip cards generated from your study material |
-| 📅 **AI Study Plan** | Personalized day-by-day study plan based on your notes and weak areas |
-| 🕸️ **Knowledge Graph Visualizer** | Interactive visual graph of how concepts in your notes connect |
-| ⚠️ **Weak Areas Tracker** | Tracks quiz mistakes and highlights what needs more revision |
-| 📊 **Study Progress Dashboard** | Quizzes taken, average score, best score — all in the sidebar |
-| 🏅 **Achievements & Badges** | Earn badges as you study more (First Quiz, Perfect Score, Brain Power...) |
-| 📚 **Topics Sidebar** | All your study topics in one place — switch between them instantly |
-| 🗑️ **Delete Topics** | Remove topics you've mastered or no longer need |
+| Tab | What it does |
+|---|---|
+| 📄 **Notes** | Paste raw notes or upload a PDF; content is chunked, embedded, and indexed into memory |
+| 💬 **Ask** | Ask questions about your notes — answers adapt to your past learning style and difficulty level |
+| 📝 **Quiz** | Auto-generated quizzes from your notes, with struggle tracking saved back to memory |
+| 🔁 **Flashcards** | AI-generated flip flashcards for quick revision |
+| 📅 **Study Plan** | Personalized study plan generated from your topics and weak areas |
+| 🕸️ **Knowledge Graph** | Visual graph of key concepts and how they relate, extracted from your notes |
+| 🎯 **Exam Predictor** | Predicts your expected exam score, confidence, weak topics, and revision hours needed |
+| ⚙️ **Settings** | Switch between Local (Ollama) and Cloud (Cognee) backends, manage/delete topics, reset memory |
+
+It also tracks a **Learning DNA** profile (learning styles, knowledge %, confidence %, exam readiness) and **Achievements** based on your study activity.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ Tech Stack
 
-| Tool | Purpose |
-|------|---------|
-| [Cognee](https://github.com/topoteretes/cognee) | Memory layer — stores notes as a knowledge graph |
-| [Ollama](https://ollama.com) | Local LLM runner |
-| [qwen2.5:7b](https://ollama.com/library/qwen2.5) | Primary LLM for Q&A, quiz, flashcards, study plan |
-| [nomic-embed-text](https://ollama.com/library/nomic-embed-text) | Embeddings for semantic search |
-| [Streamlit](https://streamlit.io) | Web UI |
-| [pypdf](https://pypdf.readthedocs.io) | PDF text extraction |
-| [vis.js](https://visjs.org) | Knowledge graph visualization |
-| Python | Backend logic |
+- **Frontend:** [Streamlit](https://streamlit.io/)
+- **Memory / Knowledge Graph:** [Cognee](https://www.cognee.ai/) (local or cloud mode)
+- **Local LLM & Embeddings:** [Ollama](https://ollama.com/) — `qwen2.5:7b` (chat) + `nomic-embed-text` (embeddings)
+- **PDF parsing:** `pypdf`
+- **Async handling:** `asyncio` + `nest_asyncio` (to run async Cognee calls inside Streamlit)
 
 ---
 
-## 📦 Installation
-
-### Prerequisites
+## 📦 Requirements
 
 - Python 3.10+
-- [Ollama](https://ollama.com/download) installed and running
+- [Ollama](https://ollama.com/) installed and running locally (for Local mode)
+- Pulled models:
+  ```bash
+  ollama pull qwen2.5:7b
+  ollama pull nomic-embed-text
+  ```
+- (Optional) A [Cognee Cloud](https://www.cognee.ai/) account if you want to use Cloud mode instead of local Ollama
 
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/Darshan-coder-sru/studymate-ai.git
-cd studymate-ai
-```
-
-### 2. Install dependencies
+### Python packages
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Pull required Ollama models
+---
 
-```bash
-ollama pull qwen2.5:7b
-ollama pull nomic-embed-text
-```
+## ⚙️ Setup
 
-### 4. Make sure Ollama is running
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/Darshan-coder-sru/studymate-ai.git
+   cd studymate-ai
+   ```
 
-```bash
-ollama serve
-```
+2. **Start Ollama** (for local mode) and pull the required models:
+   ```bash
+   ollama serve
+   ollama pull qwen2.5:7b
+   ollama pull nomic-embed-text
+   ```
 
-> If you see `bind: Only one usage of each socket address` — Ollama is already running. That's fine!
+3. **(Optional) Configure Cognee Cloud** — create a `.env` file in the project root if you plan to use Cloud mode:
+   ```env
+   COGNEE_BASE_URL=your_cognee_cloud_url
+   COGNEE_API_KEY=your_api_key
+   COGNEE_TENANT_ID=your_tenant_id
+   ```
 
-### 5. Run the app
+4. **Run the app**
+   ```bash
+   streamlit run app.py
+   ```
 
-```bash
-streamlit run app.py
-```
-
-Open your browser at `http://localhost:8501` 🎉
+5. Open the local URL Streamlit prints (usually `http://localhost:8501`).
 
 ---
 
-## 🔧 Configuration
+## 🏛️ Architecture
 
-Create a `.env` file in the project root (optional):
-
-```env
-OLLAMA_BASE_URL=http://localhost:11434
+```mermaid
+flowchart TD
+    U[User] --> UI[Streamlit UI - app.py]
+    UI --> ML[Memory layer - memory.py]
+    ML --> L[Local backend<br/>Ollama qwen2.5:7b + nomic-embed-text]
+    ML --> C[Cloud backend<br/>Cognee Cloud API]
+    ML --> S[(struggle_history dataset)]
+    S --> ML
 ```
 
-All other config is handled automatically in `memory.py`.
+The memory layer is the core differentiator: every quiz answer, weak topic, and struggle gets written back into a `struggle_history` dataset, which then feeds future quiz generation, the Learning DNA profile, and the exam predictor — so the app actually adapts to the student over time instead of just answering questions about static notes.
+
+## 🧭 Usage
+
+1. Go to **📄 Notes** and paste your notes or upload a PDF.
+2. Head to **💬 Ask** to quiz the AI about your material.
+3. Use **📝 Quiz** and **🔁 Flashcards** to test and reinforce what you've learned.
+4. Check **🕸️ Knowledge Graph** to visualize how concepts connect.
+5. Use **🎯 Exam Predictor** to see your projected score and where to focus.
+6. Switch memory backends or manage/delete topics anytime under **⚙️ Settings**.
+
+---
+
+## 🔀 Memory Backends
+
+StudyMate AI supports two modes, switchable from the **Settings** tab:
+
+- **Local (Ollama)** — everything runs on your machine, no API key needed.
+- **Cloud (Cognee)** — offloads memory/search to Cognee Cloud; requires `COGNEE_BASE_URL` and `COGNEE_API_KEY` in your `.env` file.
 
 ---
 
@@ -109,70 +121,21 @@ All other config is handled automatically in `memory.py`.
 
 ```
 studymate-ai/
-├── app.py          # Streamlit UI — all tabs, sidebar, interactions
-├── memory.py       # Cognee memory layer — all AI logic
-├── .env            # Optional environment variables
-├── .streamlit      # For better UI and clean interface 
-├── README.md
-└── requirements.txt 
-
+├── app.py             # Streamlit UI — tabs, styling, and page logic
+├── memory.py          # Cognee/Ollama integration — notes, quizzes, DNA, exam prediction
+├── requirements.txt   # Python dependencies
+├── .env.example       # Template for Cognee Cloud credentials (optional)
+└── README.md
 ```
-
----
-
-## 🎮 How to Use
-
-1. **Add Notes** — Paste your study notes or upload a PDF in the Notes tab
-2. **Ask Questions** — Switch to the Ask tab, type your question, pick a difficulty
-3. **Take a Quiz** — Go to Quiz tab, generate questions, submit and get scored
-4. **Review Flashcards** — Generate and flip through cards in the Flashcards tab
-5. **Get a Study Plan** — Generate a personalized day-by-day plan in the Study Plan tab
-6. **Visualize Concepts** — See how ideas connect in the Knowledge Graph tab
-7. **Track Progress** — Check the sidebar for your scores, weak areas, and achievements
-
----
-
-## 🧠 How Cognee Powers StudyMate AI
-
-StudyMate AI uses Cognee as its **persistent memory layer**:
-
-- When you add notes → Cognee builds a **knowledge graph** from your text
-- When you ask a question → Cognee does a **graph completion search** to find relevant context
-- When you get a question wrong → The mistake is **stored back into Cognee** as a struggle note
-- When you ask again → Cognee retrieves your **learning profile** and adapts the answer
-
-This means StudyMate AI genuinely gets smarter the more you use it — it remembers what you've studied, what you've struggled with, and how you learn best.
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Cognee Cloud integration
-- [ ] Multi-language answer support
-- [ ] Export quiz as PDF
-- [ ] Voice input support
-- [ ] Topic mastery score (0–100%)
 
 ---
 
 ## 🤝 Contributing
 
-Pull requests are welcome! For major changes, please open an issue first.
+Issues and pull requests are welcome! If you spot a bug or have a feature idea, feel free to open an issue.
 
 ---
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-## 🙌 Acknowledgements
-
-- [Cognee](https://github.com/topoteretes/cognee) — for the incredible knowledge graph memory layer
-- [WeMakeDevs](https://wemakedevs.org) — for organizing the hackathon
-- [Ollama](https://ollama.com) — for making local LLMs accessible
-
----
-
-<p align="center">Built with ❤️ by Darshan for the WeMakeDevs x Cognee Hackathon</p>
+Add your preferred license here (e.g. MIT).

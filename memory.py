@@ -1,17 +1,6 @@
 ﻿import os
 import re
 
-os.environ["LLM_PROVIDER"] = "ollama"
-os.environ["LLM_MODEL"] = "qwen2.5:7b"
-os.environ["LLM_ENDPOINT"] = "http://localhost:11434/v1"
-os.environ["LLM_API_KEY"] = "ollama"
-os.environ["EMBEDDING_PROVIDER"] = "ollama"
-os.environ["EMBEDDING_MODEL"] = "nomic-embed-text"
-os.environ["EMBEDDING_ENDPOINT"] = "http://localhost:11434/api/embed"
-os.environ["EMBEDDING_DIMENSIONS"] = "768"
-os.environ["COGNEE_SKIP_CONNECTION_TEST"] = "true"
-os.environ["TELEMETRY_DISABLED"] = "true"
-
 import ollama
 import cognee
 import json
@@ -23,12 +12,47 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _learning_profile_cache = None
+_ollama_env_initialized = False
 
 COGNEE_MODE = "local"
+
+# Default local (Ollama) config. Only applied when init_ollama_env() is
+# called explicitly — importing this module no longer has side effects.
+_OLLAMA_ENV_DEFAULTS = {
+    "LLM_PROVIDER": "ollama",
+    "LLM_MODEL": "qwen2.5:7b",
+    "LLM_ENDPOINT": "http://localhost:11434/v1",
+    "LLM_API_KEY": "ollama",
+    "EMBEDDING_PROVIDER": "ollama",
+    "EMBEDDING_MODEL": "nomic-embed-text",
+    "EMBEDDING_ENDPOINT": "http://localhost:11434/api/embed",
+    "EMBEDDING_DIMENSIONS": "768",
+    "COGNEE_SKIP_CONNECTION_TEST": "true",
+    "TELEMETRY_DISABLED": "true",
+}
+
+
+def init_ollama_env(force: bool = False):
+    """Apply the local Ollama environment config.
+
+    Called explicitly (e.g. once at app startup, or lazily before the
+    first local-mode call) instead of firing as an import-time side
+    effect. Safe to call multiple times — only sets vars once unless
+    force=True.
+    """
+    global _ollama_env_initialized
+    if _ollama_env_initialized and not force:
+        return
+    for key, value in _OLLAMA_ENV_DEFAULTS.items():
+        os.environ.setdefault(key, value)
+    _ollama_env_initialized = True
+
 
 def set_mode(mode: str):
     global COGNEE_MODE
     COGNEE_MODE = mode
+    if mode == "local":
+        init_ollama_env()
 
 COGNEE_BASE_URL = os.environ.get("COGNEE_BASE_URL", "")
 COGNEE_API_KEY = os.environ.get("COGNEE_API_KEY", "")
@@ -152,6 +176,7 @@ def parse_json_response(raw: str):
 
 
 async def setup_cognee():
+    init_ollama_env()
     try:
         cognee.config.set_llm_config({
             "llm_provider": "ollama",
