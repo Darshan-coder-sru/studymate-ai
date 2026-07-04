@@ -102,7 +102,7 @@ def cloud_cognify(dataset_name: str):
     resp.raise_for_status()
 
 def cloud_search(query_text: str, dataset_name: str = None):
-    payload = {"query": query_text, "searchType": "CHUNKS"}
+    payload = {"query": query_text, "search_type": "GRAPH_COMPLETION", "top_k": 10}
     if dataset_name:
         payload["datasets"] = [dataset_name]
     resp = requests.post(
