@@ -146,14 +146,46 @@ def _chat_content(response) -> str:
 
 
 def safe_ollama_chat(prompt: str) -> str:
+    """
+    Call LLM — uses Groq (cloud) when deployed, Ollama when local.
+    """
+    # Cloud mode — use Groq
+    if COGNEE_MODE == "cloud":
+        try:
+            import os
+            groq_key = os.getenv("GROQ_API_KEY", "")
+            if not groq_key:
+                return "⚠️ GROQ_API_KEY not set in Streamlit secrets."
+            
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "llama3-8b-8192",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 1024,
+                    "temperature": 0.7
+                },
+                timeout=60
+            )
+            resp.raise_for_status()
+            return resp.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"[Groq] Error: {e}")
+            return f"⚠️ Could not generate answer via Groq: {e}"
+
+    # Local mode — use Ollama
     try:
         response = ollama.chat(
             model="qwen2.5:7b",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": prompt}]
         )
-        return _chat_content(response)
+        return response.message.content
     except Exception as e:
-        print(f"[Ollama] Chat call failed: {e}")
+        print(f"[Ollama] Error: {e}")
         return ""
 
 
