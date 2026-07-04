@@ -156,6 +156,10 @@ def safe_ollama_chat(prompt: str) -> str:
             groq_key = os.getenv("GROQ_API_KEY", "")
             if not groq_key:
                 return "⚠️ GROQ_API_KEY not set in Streamlit secrets."
+
+            # Truncate prompt if too long (Groq has token limits)
+            prompt_truncated = prompt[:6000] if len(prompt) > 6000 else prompt
+
             
             resp = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
@@ -164,7 +168,7 @@ def safe_ollama_chat(prompt: str) -> str:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "llama3-8b-8192",
+                    "model": "llama-3.1-8b-instant",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 1024,
                     "temperature": 0.7
