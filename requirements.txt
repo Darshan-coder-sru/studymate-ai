@@ -5,3 +5,8 @@ ollama>=0.3
 cognee>=0.1
 requests>=2.31
 python-dotenv>=1.0
+
+# Knowledge Graph
+networkx>=3.3
+pyvis>=0.3.2
+jinja2>=3.1
