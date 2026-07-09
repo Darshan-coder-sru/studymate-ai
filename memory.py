@@ -1,5 +1,6 @@
 ﻿import os
 import re
+import time
 
 import ollama
 import cognee
@@ -10,6 +11,37 @@ import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── SigNoz / OpenTelemetry setup ─────────────────────────────────────────
+# Wrapped in a function (not run at import time) so the app still works
+# fine even if OTEL env vars aren't set (e.g. running without SigNoz).
+_tracer = None
+
+
+def _init_tracer():
+    """Set up the OpenTelemetry tracer once. Safe to call multiple times."""
+    global _tracer
+    if _tracer is not None:
+        return _tracer
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.resources import Resource
+
+        resource = Resource(attributes={"service.name": "studymate-ai"})
+        provider = TracerProvider(resource=resource)
+        exporter = OTLPSpanExporter()  # reads OTEL_EXPORTER_OTLP_ENDPOINT / HEADERS from env
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+        _tracer = trace.get_tracer("studymate-ai")
+    except Exception as e:
+        # If OTEL isn't configured (e.g. env vars missing), fail silently
+        # so the app still works without observability.
+        print(f"[OTel] Tracer not initialized: {e}")
+        _tracer = False
+    return _tracer
 
 _learning_profile_cache = None
 _ollama_env_initialized = False
@@ -148,49 +180,100 @@ def _chat_content(response) -> str:
 def safe_ollama_chat(prompt: str) -> str:
     """
     Call LLM — uses Groq (cloud) when deployed, Ollama when local.
+    Every call is wrapped in an OpenTelemetry span so latency, errors,
+    and prompt size show up in SigNoz regardless of which backend is used.
     """
+    tracer = _init_tracer()
+
     # Cloud mode — use Groq
     if COGNEE_MODE == "cloud":
-        try:
-            import os
-            groq_key = os.getenv("GROQ_API_KEY", "")
-            if not groq_key:
-                return "⚠️ GROQ_API_KEY not set in Streamlit secrets."
+        span_cm = tracer.start_as_current_span("llm-call-groq") if tracer else _noop_span()
+        with span_cm as span:
+            start = time.time()
+            try:
+                import os
+                groq_key = os.getenv("GROQ_API_KEY", "")
+                if not groq_key:
+                    if tracer:
+                        span.set_attribute("gen_ai.system", "groq")
+                        span.set_attribute("error", True)
+                        span.set_attribute("error.message", "missing GROQ_API_KEY")
+                    return "⚠️ GROQ_API_KEY not set in Streamlit secrets."
 
-            # Truncate prompt if too long (Groq has token limits)
-            prompt_truncated = prompt[:6000] if len(prompt) > 6000 else prompt
+                # Truncate prompt if too long (Groq has token limits)
+                prompt_truncated = prompt[:6000] if len(prompt) > 6000 else prompt
 
-            
-            resp = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "llama-3.1-8b-instant",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 1024,
-                    "temperature": 0.7
-                },
-                timeout=60
-            )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            print(f"[Groq] Error: {e}")
-            return f"⚠️ Could not generate answer via Groq: {e}"
+                if tracer:
+                    span.set_attribute("gen_ai.system", "groq")
+                    span.set_attribute("gen_ai.request.model", "llama-3.1-8b-instant")
+                    span.set_attribute("gen_ai.prompt.length", len(prompt))
+
+                resp = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "llama-3.1-8b-instant",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 1024,
+                        "temperature": 0.7
+                    },
+                    timeout=60
+                )
+                resp.raise_for_status()
+                result = resp.json()
+                content = result["choices"][0]["message"]["content"]
+
+                if tracer:
+                    usage = result.get("usage", {})
+                    span.set_attribute("gen_ai.usage.prompt_tokens", usage.get("prompt_tokens", 0))
+                    span.set_attribute("gen_ai.usage.completion_tokens", usage.get("completion_tokens", 0))
+                    span.set_attribute("gen_ai.usage.total_tokens", usage.get("total_tokens", 0))
+                    span.set_attribute("llm.latency_seconds", round(time.time() - start, 3))
+                return content
+            except Exception as e:
+                print(f"[Groq] Error: {e}")
+                if tracer:
+                    span.set_attribute("error", True)
+                    span.set_attribute("error.message", str(e))
+                return f"⚠️ Could not generate answer via Groq: {e}"
 
     # Local mode — use Ollama
-    try:
-        response = ollama.chat(
-            model="qwen2.5:7b",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.message.content
-    except Exception as e:
-        print(f"[Ollama] Error: {e}")
-        return ""
+    span_cm = tracer.start_as_current_span("llm-call-ollama") if tracer else _noop_span()
+    with span_cm as span:
+        start = time.time()
+        try:
+            if tracer:
+                span.set_attribute("gen_ai.system", "ollama")
+                span.set_attribute("gen_ai.request.model", "qwen2.5:7b")
+                span.set_attribute("gen_ai.prompt.length", len(prompt))
+
+            response = ollama.chat(
+                model="qwen2.5:7b",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            if tracer:
+                span.set_attribute("llm.latency_seconds", round(time.time() - start, 3))
+            return response.message.content
+        except Exception as e:
+            print(f"[Ollama] Error: {e}")
+            if tracer:
+                span.set_attribute("error", True)
+                span.set_attribute("error.message", str(e))
+            return ""
+
+
+class _noop_span:
+    """Used when the tracer isn't configured, so `with span_cm as span:`
+    still works without errors — span.set_attribute becomes a no-op."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+    def set_attribute(self, *a, **k):
+        pass
 
 
 def parse_json_response(raw: str):
