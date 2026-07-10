@@ -23,6 +23,13 @@ def _init_tracer():
     global _tracer
     if _tracer is not None:
         return _tracer
+
+    # DIAGNOSTIC: always print what env vars are visible, regardless of outcome
+    endpoint_val = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    headers_val = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "")
+    print(f"[OTel][DEBUG] OTEL_EXPORTER_OTLP_ENDPOINT = {endpoint_val!r}")
+    print(f"[OTel][DEBUG] OTEL_EXPORTER_OTLP_HEADERS present = {bool(headers_val)}, length = {len(headers_val)}")
+
     try:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
@@ -36,6 +43,7 @@ def _init_tracer():
         provider.add_span_processor(BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
         _tracer = trace.get_tracer("studymate-ai")
+        print("[OTel][DEBUG] Tracer initialized successfully")
     except Exception as e:
         # If OTEL isn't configured (e.g. env vars missing), fail silently
         # so the app still works without observability.
