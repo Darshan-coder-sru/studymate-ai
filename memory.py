@@ -27,8 +27,8 @@ def _init_tracer():
     # DIAGNOSTIC: always print what env vars are visible, regardless of outcome
     endpoint_val = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
     headers_val = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "")
-    print(f"[OTel][DEBUG] OTEL_EXPORTER_OTLP_ENDPOINT = {endpoint_val!r}")
-    print(f"[OTel][DEBUG] OTEL_EXPORTER_OTLP_HEADERS present = {bool(headers_val)}, length = {len(headers_val)}")
+    print(f"[OTel][DEBUG] OTEL_EXPORTER_OTLP_ENDPOINT = {endpoint_val!r}", flush=True)
+    print(f"[OTel][DEBUG] OTEL_EXPORTER_OTLP_HEADERS present = {bool(headers_val)}, length = {len(headers_val)}", flush=True)
 
     try:
         from opentelemetry import trace
@@ -43,11 +43,11 @@ def _init_tracer():
         provider.add_span_processor(BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
         _tracer = trace.get_tracer("studymate-ai")
-        print("[OTel][DEBUG] Tracer initialized successfully")
+        print("[OTel][DEBUG] Tracer initialized successfully", flush=True)
     except Exception as e:
         # If OTEL isn't configured (e.g. env vars missing), fail silently
         # so the app still works without observability.
-        print(f"[OTel] Tracer not initialized: {e}")
+        print(f"[OTel] Tracer not initialized: {e}", flush=True)
         _tracer = False
     return _tracer
 
@@ -196,7 +196,7 @@ def _make_span(tracer, name):
         try:
             return tracer.start_span(name)
         except Exception as e:
-            print(f"[OTel] Could not start span '{name}': {e}")
+            print(f"[OTel] Could not start span '{name}': {e}", flush=True)
             return _noop_span()
     return _noop_span()
 
@@ -254,7 +254,7 @@ def safe_ollama_chat(prompt: str) -> str:
             span.set_attribute("llm.latency_seconds", round(time.time() - start, 3))
             return content
         except Exception as e:
-            print(f"[Groq] Error: {e}")
+            print(f"[Groq] Error: {e}", flush=True)
             span.set_attribute("error", True)
             span.set_attribute("error.message", str(e))
             return f"⚠️ Could not generate answer via Groq: {e}"
@@ -276,7 +276,7 @@ def safe_ollama_chat(prompt: str) -> str:
         span.set_attribute("llm.latency_seconds", round(time.time() - start, 3))
         return response.message.content
     except Exception as e:
-        print(f"[Ollama] Error: {e}")
+        print(f"[Ollama] Error: {e}", flush=True)
         span.set_attribute("error", True)
         span.set_attribute("error.message", str(e))
         return ""
@@ -320,7 +320,7 @@ def parse_json_response(raw: str):
         except json.JSONDecodeError:
             pass
 
-    print("[JSON] Could not parse model output as JSON.")
+    print("[JSON] Could not parse model output as JSON.", flush=True)
     return []
 
 
@@ -366,7 +366,7 @@ async def add_notes(text: str, dataset_name: str = "studymate"):
             await asyncio.to_thread(cloud_cognify, dataset_name)
             return "✅ Notes added and indexed into Cognee Cloud!"
         except Exception as e:
-            print(f"[AddNotes] Cloud add/cognify failed: {e}")
+            print(f"[AddNotes] Cloud add/cognify failed: {e}", flush=True)
             return f"❌ Failed to save notes to Cognee Cloud: {e}"
 
     try:
@@ -375,7 +375,7 @@ async def add_notes(text: str, dataset_name: str = "studymate"):
         await cognee.cognify([dataset_name])
         return "✅ Notes added and indexed into memory!"
     except Exception as e:
-        print(f"[AddNotes] Local add/cognify failed: {e}")
+        print(f"[AddNotes] Local add/cognify failed: {e}", flush=True)
         return f"❌ Failed to save notes locally: {e}"
 
 
@@ -403,7 +403,7 @@ async def ask_question(question: str, dataset_name: str = "studymate", difficult
                 )
             return results
         except Exception as e:
-            print(f"[AdaptiveAsk] Topic search failed: {e}")
+            print(f"[AdaptiveAsk] Topic search failed: {e}", flush=True)
             return []
 
     async def fetch_profile():
@@ -421,7 +421,7 @@ async def ask_question(question: str, dataset_name: str = "studymate", difficult
             _learning_profile_cache = results
             return results
         except Exception as e:
-            print(f"[AdaptiveAsk] No cross-topic memory yet: {e}")
+            print(f"[AdaptiveAsk] No cross-topic memory yet: {e}", flush=True)
             return []
 
     topic_results, profile_results = await asyncio.gather(
@@ -500,7 +500,7 @@ async def save_struggle(dataset_name: str, question: str, correct_answer: str, u
             await asyncio.to_thread(cloud_add, struggle_note, "struggle_history")
             await asyncio.to_thread(cloud_cognify, "struggle_history")
         except Exception as e:
-            print(f"[SaveStruggle] Cloud add/cognify failed: {e}")
+            print(f"[SaveStruggle] Cloud add/cognify failed: {e}", flush=True)
         return struggle_note
 
     await setup_cognee()
@@ -508,7 +508,7 @@ async def save_struggle(dataset_name: str, question: str, correct_answer: str, u
         await cognee.add(struggle_note, dataset_name="struggle_history")
         await cognee.cognify(["struggle_history"])
     except Exception as e:
-        print(f"[SaveStruggle] Local add/cognify failed: {e}")
+        print(f"[SaveStruggle] Local add/cognify failed: {e}", flush=True)
     return struggle_note
 
 
@@ -530,7 +530,7 @@ async def save_struggles_batch(dataset_name: str, struggles: list):
             await asyncio.to_thread(cloud_add, combined_note, "struggle_history")
             await asyncio.to_thread(cloud_cognify, "struggle_history")
         except Exception as e:
-            print(f"[SaveStrugglesBatch] Cloud add/cognify failed: {e}")
+            print(f"[SaveStrugglesBatch] Cloud add/cognify failed: {e}", flush=True)
         return combined_note
 
     await setup_cognee()
@@ -538,7 +538,7 @@ async def save_struggles_batch(dataset_name: str, struggles: list):
         await cognee.add(combined_note, dataset_name="struggle_history")
         await cognee.cognify(["struggle_history"])
     except Exception as e:
-        print(f"[SaveStrugglesBatch] Local add/cognify failed: {e}")
+        print(f"[SaveStrugglesBatch] Local add/cognify failed: {e}", flush=True)
     return combined_note
 
 
@@ -572,7 +572,7 @@ async def _get_summary_text(query_text: str, dataset_name: str) -> str:
         try:
             results = await asyncio.to_thread(cloud_search, query_text, dataset_name)
         except Exception as e:
-            print(f"[Summary] Cloud search failed: {e}")
+            print(f"[Summary] Cloud search failed: {e}", flush=True)
             results = []
     else:
         await setup_cognee()
@@ -583,7 +583,7 @@ async def _get_summary_text(query_text: str, dataset_name: str) -> str:
                 datasets=[dataset_name]
             )
         except Exception as e:
-            print(f"[Summary] Local search failed: {e}")
+            print(f"[Summary] Local search failed: {e}", flush=True)
             results = []
     return extract_text(results)
 
@@ -639,7 +639,7 @@ Return ONLY valid JSON in this exact format, nothing else:
 
     valid = [q for q in result if _valid_quiz_item(q)]
     if len(valid) < len(result):
-        print(f"[Quiz] Dropped {len(result) - len(valid)} malformed question(s) from model output.")
+        print(f"[Quiz] Dropped {len(result) - len(valid)} malformed question(s) from model output.", flush=True)
     return valid
 
 
@@ -764,7 +764,7 @@ Return ONLY valid JSON in this exact format, nothing else:
 
     valid = [d for d in result if _valid_plan_day(d)]
     if len(valid) < len(result):
-        print(f"[StudyPlan] Dropped {len(result) - len(valid)} malformed day(s) from model output.")
+        print(f"[StudyPlan] Dropped {len(result) - len(valid)} malformed day(s) from model output.", flush=True)
     return valid
 
 
@@ -808,7 +808,7 @@ async def get_topics():
         topics.sort(key=lambda t: t["updated_at"] or "", reverse=True)
         return topics
     except Exception as e:
-        print(f"[GetTopics] Failed: {e}")
+        print(f"[GetTopics] Failed: {e}", flush=True)
         return []
 
 
@@ -826,7 +826,7 @@ async def reset_memory():
         await cognee.prune.prune_system(metadata=True)
         return "🗑️ Memory cleared!"
     except Exception as e:
-        print(f"[ResetMemory] Failed: {e}")
+        print(f"[ResetMemory] Failed: {e}", flush=True)
         return f"❌ Could not clear memory: {e}"
 
 
